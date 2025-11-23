@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAM Protocol Testing - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div>
+                <h1 class="logo">🛡️ IAM Protocol Tester</h1>
+                <p class="subtitle">Comprehensive Authentication & Authorization Testing Platform</p>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Welcome Section -->
+        <div class="card glass-card">
+            <div class="card-header">
+                <h2 class="card-title">Welcome to IAM Protocol Testing</h2>
+            </div>
+            <div class="card-body">
+                <p style="margin-bottom: 1rem;">
+                    Test and validate your identity provider integrations with support for <strong>OIDC</strong>,
+                    <strong>OAuth 2.0</strong>, and <strong>SAML 2.0</strong> protocols.
+                    Get detailed token analysis, claims visualization, and comprehensive diagnostics.
+                </p>
+                <div class="flex gap-md">
+                    <div class="badge badge-info">Azure/Entra ID</div>
+                    <div class="badge badge-info">Okta</div>
+                    <div class="badge badge-info">Generic OIDC</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Configuration -->
+        <div class="grid grid-2">
+            <!-- Provider Selection -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">1. Select Identity Provider</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label class="form-label" for="provider">Identity Provider</label>
+                        <select id="provider" class="form-select">
+                            <option value="">-- Select Provider --</option>
+                            {% for provider in providers %}
+                            <option value="{{ provider.id }}">{{ provider.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="form-help">Choose your identity provider platform</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flow Selection -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">2. Select Authentication Flow</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label class="form-label" for="flow">Authentication Flow</label>
+                        <select id="flow" class="form-select">
+                            <option value="">-- Select Flow --</option>
+                            {% for flow in flows %}
+                            <option value="{{ flow.id }}">{{ flow.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="form-help">Choose the OAuth/OIDC flow to test</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Form -->
+        <div class="card" id="configCard" style="display: none;">
+            <div class="card-header">
+                <h3 class="card-title">3. Configure Test Parameters</h3>
+                <button id="registerAppBtn" class="btn btn-sm btn-secondary" style="display: none;">
+                    ✨ Auto-Register New App
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label" for="clientId">Client ID</label>
+                        <input type="text" id="clientId" class="form-input" placeholder="Enter client ID">
+                        <p class="form-help">Application/Client ID from your IdP</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="clientSecret">Client Secret (if required)</label>
+                        <input type="password" id="clientSecret" class="form-input" placeholder="Enter client secret">
+                        <p class="form-help">Optional for PKCE flows</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="scopes">Scopes</label>
+                    <input type="text" id="scopes" class="form-input" value="openid profile email"
+                        placeholder="openid profile email">
+                    <p class="form-help">Space-separated list of scopes</p>
+                </div>
+
+                <div class="form-group" id="tenantGroup" style="display: none;">
+                    <label class="form-label" for="tenantId">Tenant ID (Azure)</label>
+                    <input type="text" id="tenantId" class="form-input" placeholder="Enter Azure tenant ID">
+                    <p class="form-help">Your Azure AD tenant ID</p>
+                </div>
+
+                <div class="form-group" id="domainGroup" style="display: none;">
+                    <label class="form-label" for="domain">Okta Domain</label>
+                    <input type="text" id="domain" class="form-input" placeholder="your-domain.okta.com">
+                    <p class="form-help">Your Okta organization domain</p>
+                </div>
+
+                <div class="form-group" id="discoveryGroup" style="display: none;">
+                    <label class="form-label" for="discoveryEndpoint">Discovery Endpoint</label>
+                    <input type="text" id="discoveryEndpoint" class="form-input"
+                        placeholder="https://.../.well-known/openid-configuration">
+                    <p class="form-help">OIDC discovery document URL</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="redirectUri">Redirect URI</label>
+                    <input type="text" id="redirectUri" class="form-input" value="http://localhost:5000/callback">
+                    <p class="form-help">Must match your IdP configuration</p>
+                </div>
+
+                <div class="flex gap-md mt-lg">
+                    <button id="startTestBtn" class="btn btn-primary btn-lg">
+                        <span>🚀 Start Test</span>
+                    </button>
+                    <button id="resetBtn" class="btn btn-secondary">
+                        <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Tests -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recent Tests</h3>
+                <button id="refreshTestsBtn" class="btn btn-sm btn-secondary">Refresh</button>
+            </div>
+            <div class="card-body">
+                <div id="recentTests">
+                    <p class="text-muted">Loading recent tests...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dynamic Client Registration Modal -->
+    <div id="registrationModal" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">🚀 Auto-Register Application</h3>
+                <button class="modal-close" onclick="closeRegistrationModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-lg">Automatically create and configure an application in your identity provider. This will
+                    generate a Client ID and Secret for testing.</p>
+
+                <!-- Azure Registration -->
+                <div id="azureRegForm" style="display: none;">
+                    <div class="alert alert-info mb-lg">
+                        <strong>Azure Requirements:</strong> You need an access token with
+                        <code>Application.ReadWrite.All</code> permission.
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Access Token</label>
+                        <textarea id="azureAccessToken" class="form-textarea" rows="3"
+                            placeholder="Paste your Azure access token here"></textarea>
+                        <p class="form-help">Get this from Azure CLI:
+                            <code>az account get-access-token --resource https://graph.microsoft.com</code>
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Application Name (Optional)</label>
+                        <input type="text" id="azureAppName" class="form-input" placeholder="IAM Protocol Tester"
+                            value="IAM Protocol Tester">
+                    </div>
+
+                    <div id="registrationResult" class="hidden"></div>
+
+                    <div class="form-group flex gap-md">
+                        <button class="btn btn-secondary" onclick="closeRegistrationModal()">Cancel</button>
+                        <button id="azureRegisterBtn" class="btn btn-primary" onclick="performRegistration()">
+                            <span>Register Application</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Okta Registration -->
+                <div id="oktaRegForm" style="display: none;">
+                    <div class="alert alert-info mb-lg">
+                        <strong>Okta Requirements:</strong> You need an API token with application management
+                        permissions.
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">API Token</label>
+                        <textarea id="oktaApiToken" class="form-textarea" rows="3"
+                            placeholder="Paste your Okta API token here"></textarea>
+                        <p class="form-help">Get this from Okta Admin Console: Security → API → Tokens</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Application Name (Optional)</label>
+                        <input type="text" id="oktaAppName" class="form-input" placeholder="IAM Protocol Tester"
+                            value="IAM Protocol Tester">
+                    </div>
+
+                    <div id="oktaRegistrationResult" class="hidden"></div>
+
+                    <div class="form-group flex gap-md">
+                        <button class="btn btn-secondary" onclick="closeRegistrationModal()">Cancel</button>
+                        <button id="oktaRegisterBtn" class="btn btn-primary" onclick="performRegistration()">
+                            <span>Register Application</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let selectedProvider = null;
+        let selectedFlow = null;
+
+        // Elements
+        const providerSelect = document.getElementById('provider');
+        const flowSelect = document.getElementById('flow');
+        const configCard = document.getElementById('configCard');
+        const startTestBtn = document.getElementById('startTestBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const registerAppBtn = document.getElementById('registerAppBtn');
+
+        // Provider-specific fields
+        const tenantGroup = document.getElementById('tenantGroup');
+        const domainGroup = document.getElementById('domainGroup');
+        const discoveryGroup = document.getElementById('discoveryGroup');
+
+        // Event Listeners
+        providerSelect.addEventListener('change', handleProviderChange);
+        flowSelect.addEventListener('change', handleFlowChange);
+        startTestBtn.addEventListener('click', startTest);
+        resetBtn.addEventListener('click', resetForm);
+        registerAppBtn.addEventListener('click', openRegistrationModal);
+        document.getElementById('refreshTestsBtn').addEventListener('click', loadRecentTests);
+
+        // Handlers
+        function handleProviderChange(e) {
+            selectedProvider = e.target.value;
+
+            // Show/hide provider-specific fields
+            tenantGroup.style.display = selectedProvider.includes('azure') ? 'block' : 'none';
+            domainGroup.style.display = selectedProvider.includes('okta') ? 'block' : 'none';
+            discoveryGroup.style.display = selectedProvider === 'generic' ? 'block' : 'none';
+
+            // Show/hide registration button
+            const canRegister = selectedProvider.includes('azure') || selectedProvider.includes('okta');
+            registerAppBtn.style.display = canRegister ? 'inline-flex' : 'none';
+
+            updateConfigVisibility();
+        }
+
+        function handleFlowChange(e) {
+            selectedFlow = e.target.value;
+            updateConfigVisibility();
+        }
+
+        function updateConfigVisibility() {
+            if (selectedProvider && selectedFlow) {
+                configCard.style.display = 'block';
+            } else {
+                configCard.style.display = 'none';
+            }
+        }
+
+        function openRegistrationModal() {
+            const modal = document.getElementById('registrationModal');
+            const azureForm = document.getElementById('azureRegForm');
+            const oktaForm = document.getElementById('oktaRegForm');
+
+            // Show appropriate form
+            if (selectedProvider.includes('azure')) {
+                azureForm.style.display = 'block';
+                oktaForm.style.display = 'none';
+            } else if (selectedProvider.includes('okta')) {
+                azureForm.style.display = 'none';
+                oktaForm.style.display = 'block';
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        function closeRegistrationModal() {
+            const modal = document.getElementById('registrationModal');
+            modal.style.display = 'none';
+
+            // Clear forms
+            document.getElementById('azureAccessToken').value = '';
+            document.getElementById('oktaApiToken').value = '';
+            document.getElementById('registrationResult').classList.add('hidden');
+            document.getElementById('oktaRegistrationResult').classList.add('hidden');
+        }
+
+        async function performRegistration() {
+            let registerBtn, resultDiv;
+
+            if (selectedProvider.includes('azure')) {
+                registerBtn = document.getElementById('azureRegisterBtn');
+                resultDiv = document.getElementById('registrationResult');
+            } else {
+                registerBtn = document.getElementById('oktaRegisterBtn');
+                resultDiv = document.getElementById('oktaRegistrationResult');
+            }
+
+            registerBtn.disabled = true;
+            registerBtn.innerHTML = '<span class="spinner"></span> <span>Registering...</span>';
+            resultDiv.classList.add('hidden');
+
+            try {
+                let endpoint, payload;
+
+                if (selectedProvider.includes('azure')) {
+                    const tenantId = document.getElementById('tenantId').value;
+                    const accessToken = document.getElementById('azureAccessToken').value;
+                    const appName = document.getElementById('azureAppName').value;
+
+                    if (!tenantId || !accessToken) {
+                        throw new Error('Tenant ID and Access Token are required');
+                    }
+
+                    endpoint = '/api/register/azure';
+                    payload = {
+                        tenant_id: tenantId,
+                        access_token: accessToken,
+                        app_name: appName,
+                        redirect_uris: [document.getElementById('redirectUri').value],
+                        scopes: document.getElementById('scopes').value.split(' ').filter(s => s)
+                    };
+                } else if (selectedProvider.includes('okta')) {
+                    const domain = document.getElementById('domain').value;
+                    const apiToken = document.getElementById('oktaApiToken').value;
+                    const appName = document.getElementById('oktaAppName').value;
+
+                    if (!domain || !apiToken) {
+                        throw new Error('Okta Domain and API Token are required');
+                    }
+
+                    endpoint = '/api/register/okta';
+                    payload = {
+                        domain: domain,
+                        api_token: apiToken,
+                        app_name: appName,
+                        redirect_uris: [document.getElementById('redirectUri').value]
+                    };
+                }
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Auto-fill credentials
+                    document.getElementById('clientId').value = result.client_id;
+                    document.getElementById('clientSecret').value = result.client_secret;
+
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>✓ Success!</strong> Application registered successfully!
+                            <div style="margin-top: 0.5rem;">
+                                <strong>Client ID:</strong> <code>${result.client_id}</code><br>
+                                <strong>Client Secret:</strong> <code>${result.client_secret.substring(0, 20)}...</code>
+                            </div>
+                            <p style="margin-top: 0.5rem;">Credentials have been auto-filled in the form.</p>
+                        </div>
+                    `;
+                    resultDiv.classList.remove('hidden');
+                    resultDiv.classList.remove('hidden');
+                } finally {
+                    registerBtn.disabled = false;
+                    registerBtn.innerHTML = '<span>Register Application</span>';
+                }
+            }
+
+        async function startTest() {
+                const provider = providerSelect.value;
+                const flow = flowSelect.value;
+                const clientId = document.getElementById('clientId').value;
+                const clientSecret = document.getElementById('clientSecret').value;
+                const scopes = document.getElementById('scopes').value.split(' ').filter(s => s);
+                const redirectUri = document.getElementById('redirectUri').value;
+
+                if (!provider || !flow || !clientId) {
+                    alert('Please fill in all required fields');
+                    return;
+                }
+
+                // Build config
+                const config = {
+                    client_id: clientId,
+                    client_secret: clientSecret
+                };
+
+                if (provider.includes('azure')) {
+                    config.tenant_id = document.getElementById('tenantId').value;
+                }
+
+                if (provider.includes('okta')) {
+                    config.domain = document.getElementById('domain').value;
+                }
+
+                if (provider === 'generic') {
+                    config.discovery_endpoint = document.getElementById('discoveryEndpoint').value;
+                }
+
+                // Disable button
+                startTestBtn.disabled = true;
+                startTestBtn.innerHTML = '<span class="spinner"></span> <span>Starting...</span>';
+
+                try {
+                    let endpoint, payload;
+
+                    if (flow === 'client_credentials') {
+                        endpoint = '/api/test/oauth/client-credentials';
+                        payload = { provider, scopes, config };
+                    } else {
+                        endpoint = '/api/test/oidc/start';
+                        payload = { provider, flow_type: flow, scopes, redirect_uri: redirectUri, config };
+                    }
+
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        if (data.authorization_url) {
+                            // Redirect to IdP
+                            window.location.href = data.authorization_url;
+                        } else if (data.redirect_url) {
+                            // Go to results
+                            window.location.href = data.redirect_url;
+                        }
+                    } else {
+                        alert('Error: ' + data.error);
+                        startTestBtn.disabled = false;
+                        startTestBtn.innerHTML = '<span>🚀 Start Test</span>';
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                    startTestBtn.disabled = false;
+                    startTestBtn.innerHTML = '<span>🚀 Start Test</span>';
+                }
+            }
+
+            function resetForm() {
+                providerSelect.value = '';
+                flowSelect.value = '';
+                document.getElementById('clientId').value = '';
+                document.getElementById('clientSecret').value = '';
+                document.getElementById('scopes').value = 'openid profile email';
+                configCard.style.display = 'none';
+            }
+
+            async function loadRecentTests() {
+                const container = document.getElementById('recentTests');
+                container.innerHTML = '<p class="text-muted">Loading...</p>';
+
+                try {
+                    const response = await fetch('/api/tests');
+                    const tests = await response.json();
+
+                    if (tests.length === 0) {
+                        container.innerHTML = '<p class="text-muted">No tests yet. Start your first test above!</p>';
+                        return;
+                    }
+
+                    const html = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Provider</th>
+                                <th>Flow</th>
+                                <th>Status</th>
+                                <th>Started</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tests.map(test => `
+                                <tr>
+                                    <td>#${test.id}</td>
+                                    <td>${test.provider}</td>
+                                    <td>${test.flow_type}</td>
+                                    <td>
+                                        <span class="badge badge-${test.status === 'success' ? 'success' : test.status === 'error' ? 'error' : 'warning'}">
+                                            ${test.status}
+                                        </span>
+                                    </td>
+                                    <td>${new Date(test.started_at).toLocaleString()}</td>
+                                    <td>
+                                        <a href="/results/${test.id}" class="btn btn-sm btn-secondary">View</a>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+
+                    container.innerHTML = html;
+                } catch (error) {
+                    container.innerHTML = '<p class="text-error">Failed to load tests</p>';
+                }
+            }
+
+            // Load recent tests on page load
+            loadRecentTests();
+    </script>
+</body>
+
+</html>

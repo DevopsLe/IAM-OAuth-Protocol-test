@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Results - IAM Protocol Testing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code&display=swap"
+        rel="stylesheet">
+    <style>
+        .json-viewer {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            overflow-x: auto;
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+        }
+
+        .json-key {
+            color: #8b5cf6;
+        }
+
+        .json-string {
+            color: #10b981;
+        }
+
+        .json-number {
+            color: #3b82f6;
+        }
+
+        .json-boolean {
+            color: #f59e0b;
+        }
+
+        .json-null {
+            color: #ef4444;
+        }
+
+        .log-entry {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-left: 3px solid var(--border-color);
+            margin-bottom: var(--spacing-sm);
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+        }
+
+        .log-entry.DEBUG {
+            border-color: var(--text-muted);
+        }
+
+        .log-entry.INFO {
+            border-color: var(--accent-info);
+        }
+
+        .log-entry.WARNING {
+            border-color: var(--accent-warning);
+        }
+
+        .log-entry.ERROR {
+            border-color: var(--accent-error);
+        }
+
+        .claim-item {
+            padding: var(--spacing-sm);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .claim-name {
+            font-weight: 600;
+            color: var(--accent-primary);
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+        }
+
+        .claim-value {
+            color: var(--text-secondary);
+            margin-top: var(--spacing-xs);
+        }
+
+        .tabs {
+            display: flex;
+            gap: var(--spacing-sm);
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .tab {
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            font-family: var(--font-sans);
+            font-size: 0.9375rem;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div>
+                <h1 class="logo">🛡️ IAM Protocol Tester</h1>
+                <p class="subtitle">Test Results</p>
+            </div>
+            <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Test Summary -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Test Summary</h2>
+                <span
+                    class="badge badge-{{ 'success' if test_result.status == 'success' else 'error' if test_result.status == 'error' else 'warning' }}">
+                    {{ test_result.status }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-3">
+                    <div>
+                        <p class="text-muted" style="font-size: 0.875rem;">Provider</p>
+                        <p style="font-weight: 600;">{{ test_result.provider }}</p>
+                    </div>
+                    <div>
+                        <p class="text-muted" style="font-size: 0.875rem;">Flow Type</p>
+                        <p style="font-weight: 600;">{{ test_result.flow_type }}</p>
+                    </div>
+                    <div>
+                        <p class="text-muted" style="font-size: 0.875rem;">Test ID</p>
+                        <p style="font-weight: 600;">#{{ test_result.id }}</p>
+                    </div>
+                </div>
+
+                {% if test_result.error %}
+                <div class="alert alert-error mt-lg">
+                    <strong>Error:</strong> {{ test_result.error.message }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tokens Section -->
+        {% if test_result.tokens.id_token or test_result.tokens.access_token %}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Tokens</h3>
+            </div>
+            <div class="card-body">
+                <div class="tabs">
+                    {% if test_result.tokens.id_token %}
+                    <button class="tab active" onclick="switchTab('id-token')">ID Token</button>
+                    {% endif %}
+                    {% if test_result.tokens.access_token %}
+                    <button class="tab {% if not test_result.tokens.id_token %}active{% endif %}"
+                        onclick="switchTab('access-token')">Access Token</button>
+                    {% endif %}
+                    {% if test_result.tokens.refresh_token %}
+                    <button class="tab" onclick="switchTab('refresh-token')">Refresh Token</button>
+                    {% endif %}
+                </div>
+
+                {% if test_result.tokens.id_token %}
+                <div id="id-token" class="tab-content active">
+                    <h4 style="margin-bottom: var(--spacing-md); color: var(--text-secondary);">ID Token</h4>
+                    <div class="json-viewer">
+                        <pre><code>{{ test_result.tokens.id_token }}</code></pre>
+                    </div>
+
+                    {% if test_result.claims.id_token %}
+                    <h4
+                        style="margin-top: var(--spacing-xl); margin-bottom: var(--spacing-md); color: var(--text-secondary);">
+                        Decoded Claims</h4>
+                    <div id="id-token-claims"></div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% if test_result.tokens.access_token %}
+                <div id="access-token" class="tab-content {% if not test_result.tokens.id_token %}active{% endif %}">
+                    <h4 style="margin-bottom: var(--spacing-md); color: var(--text-secondary);">Access Token</h4>
+                    <div class="json-viewer">
+                        <pre><code>{{ test_result.tokens.access_token }}</code></pre>
+                    </div>
+
+                    {% if test_result.claims.access_token %}
+                    <h4
+                        style="margin-top: var(--spacing-xl); margin-bottom: var(--spacing-md); color: var(--text-secondary);">
+                        Decoded Claims</h4>
+                    <div id="access-token-claims"></div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% if test_result.tokens.refresh_token %}
+                <div id="refresh-token" class="tab-content">
+                    <h4 style="margin-bottom: var(--spacing-md); color: var(--text-secondary);">Refresh Token</h4>
+                    <div class="json-viewer">
+                        <pre><code>{{ test_result.tokens.refresh_token }}</code></pre>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Token Validation -->
+        {% if test_result.validation %}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Token Validation</h3>
+                <span class="badge badge-{{ 'success' if test_result.validation.valid else 'error' }}">
+                    {{ 'VALID' if test_result.validation.valid else 'INVALID' }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-2">
+                    <div class="claim-item">
+                        <div class="claim-name">Signature</div>
+                        <div class="claim-value">
+                            {% if test_result.validation.signature_valid == True %}
+                            <span class="text-success">✓ Valid</span>
+                            {% elif test_result.validation.signature_valid == False %}
+                            <span class="text-error">✗ Invalid</span>
+                            {% else %}
+                            <span class="text-muted">Not verified</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="claim-item">
+                        <div class="claim-name">Expiration</div>
+                        <div class="claim-value">
+                            {% if test_result.validation.expired %}
+                            <span class="text-error">✗ Expired</span>
+                            {% else %}
+                            <span class="text-success">✓ Valid</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if test_result.validation.issuer_valid is not none %}
+                    <div class="claim-item">
+                        <div class="claim-name">Issuer</div>
+                        <div class="claim-value">
+                            {% if test_result.validation.issuer_valid %}
+                            <span class="text-success">✓ Valid</span>
+                            {% else %}
+                            <span class="text-error">✗ Invalid</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if test_result.validation.audience_valid is not none %}
+                    <div class="claim-item">
+                        <div class="claim-name">Audience</div>
+                        <div class="claim-value">
+                            {% if test_result.validation.audience_valid %}
+                            <span class="text-success">✓ Valid</span>
+                            {% else %}
+                            <span class="text-error">✗ Invalid</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if test_result.validation.errors %}
+                <div class="alert alert-error mt-lg">
+                    <strong>Validation Errors:</strong>
+                    <ul style="margin-top: var(--spacing-sm); padding-left: var(--spacing-lg);">
+                        {% for error in test_result.validation.errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if test_result.validation.warnings %}
+                <div class="alert alert-warning mt-lg">
+                    <strong>Warnings:</strong>
+                    <ul style="margin-top: var(--spacing-sm); padding-left: var(--spacing-lg);">
+                        {% for warning in test_result.validation.warnings %}
+                        <li>{{ warning }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- API Test Results -->
+        {% if test_result.api_test %}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">API Access Test</h3>
+            </div>
+            <div class="card-body">
+                <p class="mb-md">
+                    Tested <strong>{{ test_result.api_test.summary.total }}</strong> endpoints,
+                    <strong class="text-success">{{ test_result.api_test.summary.allowed }}</strong> allowed
+                </p>
+
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Endpoint</th>
+                            <th>Status</th>
+                            <th>Required Scopes</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for endpoint in test_result.api_test.endpoints_tested %}
+                        <tr>
+                            <td><code>{{ endpoint.endpoint }}</code></td>
+                            <td>
+                                {% if endpoint.permission_check.allowed %}
+                                <span class="badge badge-success">Allowed</span>
+                                {% else %}
+                                <span class="badge badge-error">Denied</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if endpoint.permission_check.required_scopes %}
+                                {% for scope in endpoint.permission_check.required_scopes %}
+                                <code style="margin-right: 0.25rem;">{{ scope }}</code>
+                                {% endfor %}
+                                {% else %}
+                                <span class="text-muted">None</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not endpoint.permission_check.allowed %}
+                                <span class="text-error">{{ endpoint.permission_check.reason }}</span>
+                                {% else %}
+                                <span class="text-success">Access granted</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Logs -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Execution Logs</h3>
+            </div>
+            <div class="card-body">
+                <div id="logs-container">
+                    <p class="text-muted">Loading logs...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Test result data
+        const testResult = {{ test_result | tojson | safe }};
+
+        // Tab switching
+        function switchTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Render claims
+        function renderClaims(claims, containerId) {
+            const container = document.getElementById(containerId);
+            if (!claims) return;
+
+            let html = '';
+            for (const [key, value] of Object.entries(claims)) {
+                html += `
+                    <div class="claim-item">
+                        <div class="claim-name">${key}</div>
+                        <div class="claim-value">${formatClaimValue(value)}</div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function formatClaimValue(value) {
+            if (typeof value === 'object') {
+                return `<pre style="margin: 0;">${JSON.stringify(value, null, 2)}</pre>`;
+            }
+            return escapeHtml(String(value));
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load and render logs
+        async function loadLogs() {
+            try {
+                const response = await fetch(`/api/test/${testResult.id}`);
+                const data = await response.json();
+
+                const logsContainer = document.getElementById('logs-container');
+
+                if (!data.logs || data.logs.length === 0) {
+                    logsContainer.innerHTML = '<p class="text-muted">No logs available</p>';
+                    return;
+                }
+
+                let html = '';
+                data.logs.forEach(log => {
+                    html += `
+                        <div class="log-entry ${log.level}">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span class="badge badge-${log.level === 'ERROR' ? 'error' : log.level === 'WARNING' ? 'warning' : 'info'}" style="font-size: 0.625rem;">
+                                    ${log.level}
+                                </span>
+                                <span style="color: var(--text-muted); font-size: 0.75rem;">
+                                    ${new Date(log.timestamp).toLocaleTimeString()}
+                                </span>
+                            </div>
+                            ${log.step ? `<div style="color: var(--accent-primary); font-size: 0.75rem; margin-bottom: 0.25rem;">[${log.step}]</div>` : ''}
+                            <div style="color: var(--text-secondary);">${log.message}</div>
+                            ${log.http ? `
+                                <div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--bg-primary); border-radius: var(--radius-sm);">
+                                    <div style="color: var(--accent-info);">${log.http.method} ${log.http.url}</div>
+                                    ${log.http.status ? `<div style="color: var(--text-muted); font-size: 0.75rem;">Status: ${log.http.status}</div>` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+
+                logsContainer.innerHTML = html;
+            } catch (error) {
+                document.getElementById('logs-container').innerHTML = '<p class="text-error">Failed to load logs</p>';
+            }
+        }
+
+        // Initialize
+        if (testResult.claims) {
+            if (testResult.claims.id_token) {
+                renderClaims(testResult.claims.id_token, 'id-token-claims');
+            }
+            if (testResult.claims.access_token) {
+                renderClaims(testResult.claims.access_token, 'access-token-claims');
+            }
+        }
+
+        loadLogs();
+    </script>
+</body>
+
+</html>
